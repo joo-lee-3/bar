@@ -1,0 +1,1293 @@
+openapi: 3.0.3
+info:
+  title: Story Mapping API
+  description: API for managing user stories, activities, and story maps in an agile development workflow
+  version: 1.0.0
+  contact:
+    name: Story Mapping API Support
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: https://staging-api.example.com/v1
+    description: Staging server
+
+paths:
+  # StoryMap Operations
+  /storymaps:
+    get:
+      summary: List all StoryMaps
+      description: Retrieve a list of all story maps with optional filtering and sorting
+      operationId: listStoryMaps
+      parameters:
+        - name: filter
+          in: query
+          required: false
+          description: Filter story maps by name or description (case-insensitive partial match)
+          schema:
+            type: string
+            example: "e-commerce"
+        - name: sortBy
+          in: query
+          required: false
+          description: Field to sort by
+          schema:
+            type: string
+            enum: [name, created, updated]
+            default: created
+        - name: sortOrder
+          in: query
+          required: false
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          description: Number of results to skip for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of story maps retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryMapListResponse'
+              examples:
+                empty_list:
+                  summary: Empty result set
+                  value:
+                    storymaps: []
+                    total: 0
+                    limit: 20
+                    offset: 0
+                filtered_results:
+                  summary: Filtered results
+                  value:
+                    storymaps:
+                      - uuid: "aa1b2c3d-4e5f-6789-0abc-def123456789"
+                        name: "E-commerce User Journey"
+                        description: "Complete user experience from browsing to checkout"
+                        created: "2024-01-15T10:30:00Z"
+                        updated: "2024-01-20T14:45:00Z"
+                        activityCount: 4
+                      - uuid: "bb2c3d4e-5f67-8901-2345-6789abcdef01"
+                        name: "E-commerce Mobile App"
+                        description: "Mobile-specific user flows and interactions"
+                        created: "2024-01-10T09:15:00Z"
+                        updated: "2024-01-18T16:20:00Z"
+                        activityCount: 3
+                    total: 2
+                    limit: 20
+                    offset: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Ingest requirements and convert to StoryMap
+      description: Create a new story map from requirements (text or file attachment)
+      operationId: createStoryMap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStoryMapRequest'
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Requirements file attachment
+                name:
+                  type: string
+                  description: Optional name for the story map
+                description:
+                  type: string
+                  description: Optional description for the story map
+      responses:
+        '201':
+          description: StoryMap created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryMap'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  type: "validation_error"
+                  message: "Uploaded file exceeds maximum size limit of 10MB"
+                  code: "file_too_large"
+        '415':
+          description: Unsupported file type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  type: "validation_error"
+                  message: "File type not supported. Please upload PDF, DOC, DOCX, or TXT files"
+                  code: "unsupported_file_type"
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /storymaps/{uuid}:
+    get:
+      summary: Get StoryMap by UUID
+      description: Retrieve a specific story map by its UUID
+      operationId: getStoryMap
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      responses:
+        '200':
+          description: StoryMap retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryMap'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      summary: Update StoryMap by UUID
+      description: Update a story map's basic properties
+      operationId: updateStoryMap
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStoryMapRequest'
+            example:
+              name: "E-commerce User Journey"
+              description: "Updated story map for the complete e-commerce user experience from browsing to checkout"
+      responses:
+        '200':
+          description: StoryMap updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                message: "StoryMap updated successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      summary: Delete StoryMap
+      description: Delete a story map and all its activities and stories
+      operationId: deleteStoryMap
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      responses:
+        '204':
+          description: StoryMap deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /storymaps/{uuid}/activities:
+    put:
+      summary: Update StoryMap activities
+      description: Add, remove, or reorder activities in the story map
+      operationId: updateStoryMapActivities
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateActivitiesRequest'
+            examples:
+              add_activity_at_beginning:
+                summary: Add activity at the beginning (position 0)
+                value:
+                  operation: "add"
+                  activity:
+                    name: "User Registration"
+                    description: "New user account creation and onboarding process"
+                  position: 0
+              add_activity_at_end:
+                summary: Add activity at the end
+                value:
+                  operation: "add"
+                  activity:
+                    name: "Post-Purchase Support"
+                    description: "Customer support, returns, and feedback collection"
+                  position: 5
+              add_activity_in_middle:
+                summary: Insert activity in the middle (position 2)
+                value:
+                  operation: "add"
+                  activity:
+                    name: "Product Comparison"
+                    description: "User compares features, prices, and reviews of different products"
+                  position: 2
+              remove_single_activity:
+                summary: Remove a single activity
+                value:
+                  operation: "remove"
+                  activityUuids:
+                    - "bb2a1c3d-45e6-78f9-0123-456789abcdef"
+              remove_multiple_activities:
+                summary: Remove multiple activities
+                value:
+                  operation: "remove"
+                  activityUuids:
+                    - "bb2a1c3d-45e6-78f9-0123-456789abcdef"
+                    - "cc3b2d4e-56f7-89a0-1234-56789abcdef0"
+                    - "dd4c3e5f-67g8-90h1-2345-6789abcdef01"
+              reorder_activities:
+                summary: Reorder activities to match user journey flow
+                value:
+                  operation: "reorder"
+                  activityUuids:
+                    - "aa1b2c3d-4e5f-6789-0abc-def123456789"
+                    - "bb2a1c3d-45e6-78f9-0123-456789abcdef"
+                    - "cc3b2d4e-56f7-89a0-1234-56789abcdef0"
+      responses:
+        '200':
+          description: Activities updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                message: "Activities updated successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Activity Operations
+  /activities/{uuid}:
+    get:
+      summary: Get Activity by UUID
+      description: Retrieve a specific activity by its UUID
+      operationId: getActivity
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      responses:
+        '200':
+          description: Activity retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activity'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      summary: Update Activity by UUID
+      description: Update an activity's basic properties
+      operationId: updateActivity
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateActivityRequest'
+            example:
+              name: "Enhanced Product Discovery"
+              description: "Updated activity covering advanced search, filtering, and product comparison features"
+      responses:
+        '200':
+          description: Activity updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                message: "Activity updated successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      summary: Delete Activity by UUID
+      description: Delete an activity and all its stories
+      operationId: deleteActivity
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      responses:
+        '204':
+          description: Activity deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /activities/{uuid}/stories:
+    put:
+      summary: Update Activity stories
+      description: Add, remove, or reorder stories in the activity
+      operationId: updateActivityStories
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStoriesRequest'
+            examples:
+              add_story_at_beginning:
+                summary: Add story at the beginning (position 0)
+                value:
+                  operation: "add"
+                  story:
+                    persona: "New Customer"
+                    actionType: "Registration Task"
+                    name: "Create account with email"
+                    description: "<p>As a new customer, I want to create an account using my email address so that I can save my preferences and track orders</p>"
+                    status: "NOT_STARTED"
+                  position: 0
+              add_story_at_end:
+                summary: Add story at the end
+                value:
+                  operation: "add"
+                  story:
+                    persona: "Premium Customer"
+                    actionType: "Priority Task"
+                    name: "Access exclusive deals"
+                    description: "<p>As a premium customer, I want to access exclusive deals and early product releases so that I get value from my membership</p>"
+                    status: "IN_PROGRESS"
+                  position: 10
+              add_story_in_middle:
+                summary: Insert story in the middle (position 3)
+                value:
+                  operation: "add"
+                  story:
+                    persona: "Shopper"
+                    actionType: "Search Task"
+                    name: "Filter by price range"
+                    description: "<p>As a shopper, I want to filter products by price range so that I can find items within my budget</p>"
+                    status: "NOT_STARTED"
+                  position: 3
+              add_story_with_design_objects:
+                summary: Add story with design objects and rich content
+                value:
+                  operation: "add"
+                  story:
+                    persona: "Mobile User"
+                    actionType: "Mobile Task"
+                    name: "Quick mobile checkout"
+                    description: "<p>As a mobile user, I want a <strong>streamlined checkout process</strong> optimized for mobile devices so that I can complete purchases quickly on-the-go.</p><p><a href=\"https://example.com/mobile-ux\">Mobile UX Guidelines</a></p>"
+                    designObjects:
+                      - uuid: "SYSTEM_RECORD_TYPE_CHECKOUT"
+                        typeQname: "type!{http://www.appian.com/ae/types/2009}CheckoutRecordType"
+                      - uuid: "SYSTEM_RECORD_TYPE_PAYMENT"
+                        typeQname: "type!{http://www.appian.com/ae/types/2009}PaymentRecordType"
+                    status: "NOT_STARTED"
+                  position: 1
+              remove_single_story:
+                summary: Remove a single story
+                value:
+                  operation: "remove"
+                  storyUuids:
+                    - "ee7e8d9a-09c0-45cf-9d63-4482fc0a4bd5"
+              remove_multiple_stories:
+                summary: Remove multiple stories
+                value:
+                  operation: "remove"
+                  storyUuids:
+                    - "ee7e8d9a-09c0-45cf-9d63-4482fc0a4bd5"
+                    - "ff8f9e0b-10d1-56de-0e74-5593gd1b5ce6"
+                    - "gg9g0f1c-21e2-67ef-1f85-6604he2c6df7"
+              reorder_stories:
+                summary: Reorder stories (new sequence)
+                value:
+                  operation: "reorder"
+                  storyUuids:
+                    - "aa1a2b3c-4d5e-6f78-9012-3456789abcde"
+                    - "ee7e8d9a-09c0-45cf-9d63-4482fc0a4bd5"
+                    - "bb2b3c4d-5e6f-7890-1234-56789abcdef0"
+      responses:
+        '200':
+          description: Stories updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                message: "Stories updated successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Story Operations
+  /stories:
+    get:
+      summary: List all Stories
+      description: Retrieve a list of all stories with optional filtering and sorting
+      operationId: listStories
+      parameters:
+        - name: filter
+          in: query
+          required: false
+          description: Filter stories by name or description (case-insensitive partial match)
+          schema:
+            type: string
+            example: "payment"
+        - name: storymapUuid
+          in: query
+          required: false
+          description: Filter stories by storymap UUID
+          schema:
+            type: string
+            format: uuid
+            example: "aa1b2c3d-4e5f-6789-0abc-def123456789"
+        - name: activityUuid
+          in: query
+          required: false
+          description: Filter stories by activity UUID
+          schema:
+            type: string
+            format: uuid
+            example: "bb2a1c3d-45e6-78f9-0123-456789abcdef"
+        - name: persona
+          in: query
+          required: false
+          description: Filter stories by specific persona
+          schema:
+            type: string
+            example: "Premium Customer"
+        - name: status
+          in: query
+          required: false
+          description: Filter stories by status
+          schema:
+            type: string
+            enum: [NOT_STARTED, IN_PROGRESS, COMPLETED, BLOCKED]
+        - name: actionType
+          in: query
+          required: false
+          description: Filter stories by action type
+          schema:
+            type: string
+            example: "Search Task"
+        - name: sortBy
+          in: query
+          required: false
+          description: Field to sort by
+          schema:
+            type: string
+            enum: [name, persona, status, actionType, created, updated]
+            default: created
+        - name: sortOrder
+          in: query
+          required: false
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          description: Number of results to skip for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of stories retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryListResponse'
+              examples:
+                empty_list:
+                  summary: Empty result set
+                  value:
+                    stories: []
+                    total: 0
+                    limit: 20
+                    offset: 0
+                filtered_by_storymap:
+                  summary: Stories filtered by storymap UUID
+                  value:
+                    stories:
+                      - id: "ee7e8d9a-09c0-45cf-9d63-4482fc0a4bd5"
+                        persona: "Shopper"
+                        actionType: "Search Task"
+                        name: "Filter by price range"
+                        description: "<p>As a shopper, I want to filter products by price range so that I can find items within my budget</p>"
+                        designObjects: []
+                        status: "NOT_STARTED"
+                      - id: "ff8f9e0b-10d1-56de-0e74-5593gd1b5ce6"
+                        persona: "Shopper"
+                        actionType: "Comparison Task"
+                        name: "Compare product features"
+                        description: "<p>As a shopper, I want to compare features of similar products so that I can make an informed decision</p>"
+                        designObjects: []
+                        status: "IN_PROGRESS"
+                    total: 2
+                    limit: 20
+                    offset: 0
+                filtered_by_activity:
+                  summary: Stories filtered by activity UUID
+                  value:
+                    stories:
+                      - id: "gg9g0f1c-21e2-67ef-1f85-6604he2c6df7"
+                        persona: "Customer"
+                        actionType: "Checkout Task"
+                        name: "Review order details"
+                        description: "<p>As a customer, I want to review my order details before finalizing so that I can ensure everything is correct</p>"
+                        designObjects:
+                          - uuid: "SYSTEM_RECORD_TYPE_ORDER"
+                            typeQname: "type!{http://www.appian.com/ae/types/2009}OrderRecordType"
+                        status: "NOT_STARTED"
+                    total: 1
+                    limit: 20
+                    offset: 0
+                filtered_by_status:
+                  summary: Stories filtered by status
+                  value:
+                    stories:
+                      - id: "aa1a2b3c-4d5e-6f78-9012-3456789abcde"
+                        persona: "Customer"
+                        actionType: "Payment Task"
+                        name: "Process payment"
+                        description: "<p>As a customer, I want to process my payment securely so that I can complete my purchase</p>"
+                        designObjects:
+                          - uuid: "SYSTEM_RECORD_TYPE_PAYMENT"
+                            typeQname: "type!{http://www.appian.com/ae/types/2009}PaymentRecordType"
+                        status: "BLOCKED"
+                    total: 1
+                    limit: 20
+                    offset: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /stories/{uuid}:
+    get:
+      summary: Get Story by UUID
+      description: Retrieve a specific story by its UUID
+      operationId: getStory
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      responses:
+        '200':
+          description: Story retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Story'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      summary: Update full Story by UUID
+      description: Update all properties of a story
+      operationId: updateStory
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStoryRequest'
+            example:
+              persona: "Premium Shopper"
+              actionType: "Enhanced Search Task"
+              name: "Advanced product filtering"
+              description: "<p>As a premium shopper, I want to use <strong>advanced filters</strong> including brand, ratings, and availability so that I can quickly find high-quality products that meet my specific criteria.</p><p><a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.example.com/filters\">View filter documentation</a></p>"
+              designObjects:
+                - uuid: "SYSTEM_RECORD_TYPE_PRODUCT"
+                  typeQname: "type!{http://www.appian.com/ae/types/2009}ProductRecordType"
+                - uuid: "SYSTEM_RECORD_TYPE_FILTER"
+                  typeQname: "type!{http://www.appian.com/ae/types/2009}FilterRecordType"
+              status: "IN_PROGRESS"
+      responses:
+        '200':
+          description: Story updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                message: "Story updated successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      summary: Delete Story by UUID
+      description: Delete a story from its activity
+      operationId: deleteStory
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      responses:
+        '204':
+          description: Story deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Story Metadata Operations
+  /stories/{uuid}/metadata:
+    get:
+      summary: Get all metadata for a story
+      description: Retrieve all ext-metadata for a specific story
+      operationId: getStoryMetadata
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      responses:
+        '200':
+          description: Story metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                description: Complete ext-metadata object with all consumer namespaces
+              example:
+                composer-v3:
+                  priority: "high"
+                  estimatedHours: 8
+                  assignedTeam: "frontend"
+                jira-sync:
+                  ticketId: "PROJ-123"
+                  lastSync: "2024-01-15T10:30:00Z"
+                agile-tracker:
+                  sprintNumber: 3
+                  storyPoints: 5
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /stories/{uuid}/metadata/{consumerKey}:
+    get:
+      summary: Get metadata for specific consumer
+      description: Retrieve ext-metadata for a specific consumer namespace
+      operationId: getStoryConsumerMetadata
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - name: consumerKey
+          in: path
+          required: true
+          description: Consumer namespace key (e.g., 'composer-v3', 'jira-sync')
+          schema:
+            type: string
+            example: "composer-v3"
+      responses:
+        '200':
+          description: Consumer metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                description: Metadata object for the specified consumer
+              examples:
+                composer_metadata:
+                  summary: Composer v3 metadata
+                  value:
+                    priority: "high"
+                    estimatedHours: 8
+                    assignedTeam: "frontend"
+                    customTags: ["mobile", "responsive"]
+                jira_metadata:
+                  summary: JIRA sync metadata
+                  value:
+                    ticketId: "PROJ-123"
+                    lastSync: "2024-01-15T10:30:00Z"
+                    status: "In Progress"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      summary: Update metadata for specific consumer
+      description: Update or create ext-metadata for a specific consumer namespace
+      operationId: updateStoryConsumerMetadata
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - name: consumerKey
+          in: path
+          required: true
+          description: Consumer namespace key (e.g., 'composer-v3', 'jira-sync')
+          schema:
+            type: string
+            example: "composer-v3"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Metadata object to store for the consumer
+            examples:
+              composer_update:
+                summary: Update Composer v3 metadata
+                value:
+                  priority: "medium"
+                  estimatedHours: 6
+                  assignedTeam: "backend"
+                  reviewStatus: "pending"
+              jira_update:
+                summary: Update JIRA sync metadata
+                value:
+                  ticketId: "PROJ-456"
+                  lastSync: "2024-01-20T14:30:00Z"
+                  status: "Done"
+      responses:
+        '200':
+          description: Consumer metadata updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                message: "Metadata updated successfully for consumer 'composer-v3'"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      summary: Delete metadata for specific consumer
+      description: Remove all ext-metadata for a specific consumer namespace
+      operationId: deleteStoryConsumerMetadata
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - name: consumerKey
+          in: path
+          required: true
+          description: Consumer namespace key (e.g., 'composer-v3', 'jira-sync')
+          schema:
+            type: string
+            example: "composer-v3"
+      responses:
+        '204':
+          description: Consumer metadata deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    UuidPath:
+      name: uuid
+      in: path
+      required: true
+      description: UUID of the resource
+      schema:
+        type: string
+        format: uuid
+        example: "ee7e8d9a-09c0-45cf-9d63-4482fc0a4bd5"
+
+  schemas:
+    Story:
+      type: object
+      description: Core story data. External metadata is accessed separately via /stories/{uuid}/metadata endpoints.
+      required:
+        - id
+        - persona
+        - actionType
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the story
+          example: "ee7e8d9a-09c0-45cf-9d63-4482fc0a4bd5"
+        persona:
+          type: string
+          description: The user persona for this story
+          example: "persona"
+        actionType:
+          type: string
+          description: Type of action for this story
+          example: "Assigned Task"
+        name:
+          type: string
+          description: Name of the story
+          example: "Action Three"
+        description:
+          type: string
+          description: Rich text description with HTML formatting
+          example: "<p>rich text note with <strong>BOLD</strong></p><p><a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.appian.com\">and hyperlink</a></p>"
+        designObjects:
+          type: array
+          description: Array of design objects associated with this story
+          items:
+            $ref: '#/components/schemas/DesignObject'
+        status:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED, BLOCKED]
+          description: Current status of the story
+          example: "NOT_STARTED"
+
+    DesignObject:
+      type: object
+      required:
+        - uuid
+        - typeQname
+      properties:
+        uuid:
+          type: string
+          description: UUID of the design object
+          example: "SYSTEM_RECORD_TYPE_USER"
+        typeQname:
+          type: string
+          description: Qualified name of the type
+          example: "type!{http://www.appian.com/ae/types/2009}RecordTypeId"
+
+    StoryListResponse:
+      type: object
+      required:
+        - stories
+        - total
+        - limit
+        - offset
+      properties:
+        stories:
+          type: array
+          description: List of stories
+          items:
+            $ref: '#/components/schemas/Story'
+        total:
+          type: integer
+          description: Total number of stories matching the filter
+          minimum: 0
+        limit:
+          type: integer
+          description: Maximum number of results returned
+          minimum: 1
+        offset:
+          type: integer
+          description: Number of results skipped
+          minimum: 0
+
+    Activity:
+      type: object
+      required:
+        - uuid
+        - name
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Unique identifier for the activity
+        name:
+          type: string
+          description: Name of the activity
+        description:
+          type: string
+          description: Description of the activity
+        stories:
+          type: array
+          description: Stories within this activity
+          items:
+            $ref: '#/components/schemas/Story'
+
+    StoryMap:
+      type: object
+      required:
+        - uuid
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Unique identifier for the story map
+        name:
+          type: string
+          description: Name of the story map
+        description:
+          type: string
+          description: Description of the story map
+        activities:
+          type: array
+          description: Activities within this story map
+          items:
+            $ref: '#/components/schemas/Activity'
+
+    StoryMapSummary:
+      type: object
+      required:
+        - uuid
+        - name
+        - created
+        - updated
+        - activityCount
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Unique identifier for the story map
+        name:
+          type: string
+          description: Name of the story map
+        description:
+          type: string
+          description: Description of the story map
+        created:
+          type: string
+          format: date-time
+          description: When the story map was created
+        updated:
+          type: string
+          format: date-time
+          description: When the story map was last updated
+        activityCount:
+          type: integer
+          description: Number of activities in this story map
+          minimum: 0
+
+    StoryMapListResponse:
+      type: object
+      required:
+        - storymaps
+        - total
+        - limit
+        - offset
+      properties:
+        storymaps:
+          type: array
+          description: List of story map summaries
+          items:
+            $ref: '#/components/schemas/StoryMapSummary'
+        total:
+          type: integer
+          description: Total number of story maps matching the filter
+          minimum: 0
+        limit:
+          type: integer
+          description: Maximum number of results returned
+          minimum: 1
+        offset:
+          type: integer
+          description: Number of results skipped
+          minimum: 0
+
+    CreateStoryMapRequest:
+      type: object
+      required:
+        - requirements
+      properties:
+        requirements:
+          type: string
+          description: Text requirements to convert into a story map
+        name:
+          type: string
+          description: Optional name for the story map
+        description:
+          type: string
+          description: Optional description for the story map
+
+    UpdateStoryMapRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Updated name for the story map
+        description:
+          type: string
+          description: Updated description for the story map
+
+    CreateActivityRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name of the activity
+        description:
+          type: string
+          description: Description of the activity
+
+    UpdateActivityRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Updated name for the activity
+        description:
+          type: string
+          description: Updated description for the activity
+
+    UpdateActivitiesRequest:
+      type: object
+      required:
+        - operation
+      properties:
+        operation:
+          type: string
+          enum: [add, remove, reorder]
+          description: Type of operation to perform
+        activity:
+          $ref: '#/components/schemas/CreateActivityRequest'
+          description: Single activity to add (for add operation)
+        position:
+          type: integer
+          description: Position to insert the activity (0-based index, for add operation)
+          minimum: 0
+        activityUuids:
+          type: array
+          description: UUIDs of activities to remove or reorder
+          items:
+            type: string
+            format: uuid
+
+    CreateStoryRequest:
+      type: object
+      required:
+        - persona
+        - actionType
+        - name
+      properties:
+        persona:
+          type: string
+          description: The user persona for this story
+        actionType:
+          type: string
+          description: Type of action for this story
+        name:
+          type: string
+          description: Name of the story
+        description:
+          type: string
+          description: Rich text description with HTML formatting
+        designObjects:
+          type: array
+          description: Array of design objects associated with this story
+          items:
+            $ref: '#/components/schemas/DesignObject'
+        status:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED, BLOCKED]
+          description: Current status of the story
+          default: "NOT_STARTED"
+        ext-metadata:
+          type: object
+          additionalProperties: true
+          description: External metadata map for consumers to attach their own non-shared metadata
+
+    UpdateStoryRequest:
+      type: object
+      properties:
+        persona:
+          type: string
+          description: Updated user persona for this story
+        actionType:
+          type: string
+          description: Updated type of action for this story
+        name:
+          type: string
+          description: Updated name of the story
+        description:
+          type: string
+          description: Updated rich text description with HTML formatting
+        designObjects:
+          type: array
+          description: Updated array of design objects associated with this story
+          items:
+            $ref: '#/components/schemas/DesignObject'
+        status:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED, BLOCKED]
+          description: Updated status of the story
+        ext-metadata:
+          type: object
+          additionalProperties: true
+          description: Updated external metadata map for consumers to attach their own non-shared metadata
+
+    UpdateStoriesRequest:
+      type: object
+      required:
+        - operation
+      properties:
+        operation:
+          type: string
+          enum: [add, remove, reorder]
+          description: Type of operation to perform
+        story:
+          $ref: '#/components/schemas/CreateStoryRequest'
+          description: Single story to add (for add operation)
+        position:
+          type: integer
+          description: Position to insert the story (0-based index, for add operation)
+          minimum: 0
+        storyUuids:
+          type: array
+          description: UUIDs of stories to remove or reorder
+          items:
+            type: string
+            format: uuid
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - type
+            - message
+          properties:
+            type:
+              type: string
+              description: Error type
+            message:
+              type: string
+              description: Human-readable error message
+            code:
+              type: string
+              description: Machine-readable error code
+            param:
+              type: string
+              description: Parameter that caused the error
+
+    SuccessResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          description: Whether the operation was successful
+          example: true
+        message:
+          type: string
+          description: Human-readable success message
+          example: "Operation completed successfully"
+
+    SuccessWithUuidResponse:
+      type: object
+      required:
+        - success
+        - message
+        - uuid
+      properties:
+        success:
+          type: boolean
+          description: Whether the operation was successful
+          example: true
+        message:
+          type: string
+          description: Human-readable success message
+          example: "Resource created successfully"
+        uuid:
+          type: string
+          format: uuid
+          description: UUID of the created resource
+          example: "ee7e8d9a-09c0-45cf-9d63-4482fc0a4bd5"
+
+  responses:
+    BadRequest:
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+                                                     
