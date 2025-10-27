@@ -178,6 +178,133 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    post:
+      summary: Process StoryMap with AI
+      description: Process a specific story map using conversational AI. Supports both query operations (read-only information retrieval) and update operations (content modifications). The AI layer is abstracted - simply provide messages and operation type.
+      operationId: generateStoryMapContent
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - name: X-Company-Api-Version
+          in: header
+          required: false
+          schema:
+            type: string
+          description: API version header for versioning support
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Unique key to ensure idempotent operations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoryMapAIRequest'
+            examples:
+              query_storymap:
+                summary: Query story map information
+                value:
+                  messages:
+                    - role: "user"
+                      content:
+                        - type: "text"
+                          text: "What are the main user personas in this e-commerce story map and their key activities?"
+                  operation_type: "query"
+              update_storymap:
+                summary: Update story map content
+                value:
+                  messages:
+                    - role: "user"
+                      content:
+                        - type: "text"
+                          text: "Please enhance the user stories with detailed acceptance criteria and add edge cases for the checkout process"
+                  operation_type: "update"
+              query_with_context:
+                summary: Query with conversation context
+                value:
+                  messages:
+                    - role: "user"
+                      content:
+                        - type: "text"
+                          text: "Show me the current activities in this story map"
+                    - role: "assistant"
+                      content:
+                        - type: "text"
+                          text: "The story map contains 4 main activities: User Registration, Product Discovery, Shopping Cart, and Checkout Process."
+                    - role: "user"
+                      content:
+                        - type: "text"
+                          text: "Which activity has the most user stories?"
+                  operation_type: "query"
+              update_with_requirements:
+                summary: Update based on new requirements
+                value:
+                  messages:
+                    - role: "user"
+                      content:
+                        - type: "text"
+                          text: "Add mobile-specific user stories to each activity and ensure all stories follow the standard format: 'As a [persona], I want [goal] so that [benefit]'"
+                  operation_type: "update"
+      responses:
+        '200':
+          description: AI-enhanced content generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryMapAIResponse'
+              examples:
+                query_response:
+                  summary: Query operation response
+                  value:
+                    content: "This e-commerce story map contains 4 main user personas:\n\n1. **New Customer** - Focused on registration and onboarding\n2. **Returning Customer** - Streamlined shopping experience\n3. **Premium Member** - Access to exclusive features\n4. **Guest User** - Quick checkout without registration\n\nThe story map has 5 main activities: User Registration, Product Discovery, Shopping Cart, Checkout Process, and Post-Purchase Support."
+                    operation_type: "query"
+                update_response:
+                  summary: Update operation response
+                  value:
+                    content: "Successfully enhanced the story map with detailed acceptance criteria and mobile-specific user stories:\n\n**Updated Story: Mobile User Registration**\nAs a mobile user, I want to create an account using my phone number so that I can quickly register without typing a long email address.\n\nAcceptance Criteria:\n- SMS verification workflow\n- Touch ID/Face ID integration\n- Auto-fill contact information\n- Responsive mobile design\n- Offline capability for form data"
+                    operation_type: "update"
+            text/event-stream:
+              examples:
+                streaming_response:
+                  summary: Streaming response for update operations
+                  value: |
+                    data: {"content":"Analyzing","operation_type":"update"}
+
+                    data: {"content":" story map structure...","operation_type":"update"}
+
+                    data: {"content":"\n\nAdding mobile-specific user stories to Product Discovery activity...","operation_type":"update"}
+
+                    data: {"content":"Successfully updated the story map with enhanced user stories and acceptance criteria.","operation_type":"update"}
+
+                    data: [DONE]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Unauthorized - invalid or missing authentication
+        '403':
+          description: Forbidden - insufficient permissions
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          description: Request entity too large - content exceeds size limits
+        '422':
+          description: Unprocessable Entity - validation error
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          description: AI provider error
+
     put:
       summary: Update StoryMap by UUID
       description: Update a story map's basic properties
@@ -1259,6 +1386,89 @@ components:
           format: uuid
           description: UUID of the created resource
           example: "ee7e8d9a-09c0-45cf-9d63-4482fc0a4bd5"
+
+    StoryMapAIRequest:
+      type: object
+      required:
+        - messages
+        - operation_type
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIMessage'
+          minItems: 1
+          maxItems: 100
+          description: Conversation messages for AI context
+        operation_type:
+          type: string
+          enum: [query, update]
+          description: Type of operation to perform - 'query' for read-only operations, 'update' for modifications
+
+    AIMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant]
+          description: Role of the message sender
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIContentBlock'
+          description: Content blocks of the message
+
+    AIContentBlock:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [text, image]
+          description: Type of content block
+        text:
+          type: string
+          description: Text content (required if type is 'text')
+        source:
+          $ref: '#/components/schemas/AIImageSource'
+          description: Image source (required if type is 'image')
+
+    AIImageSource:
+      type: object
+      required:
+        - type
+        - media_type
+        - data
+      properties:
+        type:
+          type: string
+          const: base64
+          default: base64
+        media_type:
+          type: string
+          enum: [image/jpeg, image/png, image/tiff]
+          description: MIME type of the image
+        data:
+          type: string
+          description: Base64 encoded image data
+
+    StoryMapAIResponse:
+      type: object
+      required:
+        - content
+        - operation_type
+      properties:
+        content:
+          type: string
+          description: Response content from the AI operation
+        operation_type:
+          type: string
+          enum: [query, update]
+          description: Type of operation that was performed - always "query" for query requests, can be "query" or "update" for update requests
 
   responses:
     BadRequest:

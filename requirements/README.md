@@ -4,10 +4,11 @@ A RESTful API for managing user stories, activities, and story maps in an agile 
 
 ## Overview
 
-The Story Mapping API provides a hierarchical structure for organizing user stories:
+The Story Mapping API provides a hierarchical structure for organizing user stories with AI-powered enhancement capabilities:
 - **StoryMaps** contain multiple **Activities**
-- **Activities** contain multiple **Stories**
+- **Activities** contain multiple **Stories**  
 - **Stories** represent individual user stories with personas, actions, and metadata
+- **AI Processing** enables conversational querying and content enhancement
 
 ## Quick Start
 
@@ -57,6 +58,7 @@ Stories support external metadata through a separate endpoint system:
 GET    /storymaps                     # List all story maps (with filtering)
 POST   /storymaps                     # Create story map from requirements
 GET    /storymaps/{uuid}              # Get specific story map
+POST   /storymaps/{uuid}              # Process story map with AI
 PUT    /storymaps/{uuid}              # Update story map
 DELETE /storymaps/{uuid}              # Delete story map
 PUT    /storymaps/{uuid}/activities   # Manage activities within story map
@@ -84,6 +86,90 @@ GET    /stories/{uuid}/metadata                    # Get all metadata
 GET    /stories/{uuid}/metadata/{consumerKey}      # Get consumer-specific metadata
 PUT    /stories/{uuid}/metadata/{consumerKey}      # Update consumer metadata
 DELETE /stories/{uuid}/metadata/{consumerKey}      # Delete consumer metadata
+```
+
+## AI-Powered Story Map Processing
+
+The API includes AI capabilities for enhancing and querying story maps through conversational interactions.
+
+### AI Operations
+```
+POST   /storymaps/{uuid}              # Process story map with AI
+```
+
+#### Operation Types
+- **`query`** - Ask questions about the story map (read-only)
+- **`update`** - Request modifications to the story map content
+
+#### Basic Usage
+```bash
+# Query story map information
+POST /storymaps/{uuid}
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "What are the main user personas in this story map?"
+        }
+      ]
+    }
+  ],
+  "operation_type": "query"
+}
+
+# Update story map content
+POST /storymaps/{uuid}
+{
+  "messages": [
+    {
+      "role": "user", 
+      "content": [
+        {
+          "type": "text",
+          "text": "Add acceptance criteria to all user stories and ensure they follow the standard format"
+        }
+      ]
+    }
+  ],
+  "operation_type": "update"
+}
+```
+
+#### Response Format
+All AI operations return a response with content and operation type:
+```json
+{
+  "content": "This story map contains 4 main user personas: New Customer, Returning Customer, Premium Member, and Guest User...",
+  "operation_type": "query"
+}
+```
+
+**Note**: The `operation_type` in the response will always be "query" for query requests, but can be either "query" or "update" for update requests depending on what the AI determined was needed.
+
+#### Conversational Context
+You can include conversation history for multi-turn interactions:
+```bash
+POST /storymaps/{uuid}
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": [{"type": "text", "text": "Show me the activities in this story map"}]
+    },
+    {
+      "role": "assistant", 
+      "content": [{"type": "text", "text": "The story map contains 5 activities: Registration, Discovery, Cart, Checkout, Support"}]
+    },
+    {
+      "role": "user",
+      "content": [{"type": "text", "text": "Which activity needs the most work?"}]
+    }
+  ],
+  "operation_type": "query"
+}
 ```
 
 ## Common Operations
@@ -147,7 +233,46 @@ PUT /storymaps/{uuid}/activities
 }
 ```
 
-### 5. Manage External Metadata
+### 5. AI-Enhanced Story Analysis
+Query and enhance story maps using AI:
+
+```bash
+# Analyze story map structure
+POST /storymaps/{uuid}
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text", 
+          "text": "Analyze this story map and identify any gaps in the user journey"
+        }
+      ]
+    }
+  ],
+  "operation_type": "query"
+}
+
+# Enhance stories with acceptance criteria
+POST /storymaps/{uuid}
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Add detailed acceptance criteria to all user stories and ensure they follow the 'As a [persona], I want [goal] so that [benefit]' format"
+        }
+      ]
+    }
+  ],
+  "operation_type": "update"
+}
+```
+
+### 6. Manage External Metadata
 Store consumer-specific metadata:
 
 ```bash
@@ -270,17 +395,25 @@ List endpoints return paginated results:
 
 ## Best Practices
 
-### 1. Metadata Management
+### 1. AI Operations
+- Use `query` operations for read-only analysis and information retrieval
+- Use `update` operations when you want to modify story map content
+- Provide clear, specific instructions in your messages
+- Include conversation context for multi-turn interactions
+- Be specific about the format or structure you want for updates
+
+### 2. Metadata Management
 - Always namespace metadata with your consumer key
 - Use consistent field names within your namespace
 - Keep metadata focused on your specific use case
 - Clean up metadata when removing integrations
 
-### 2. Performance
+### 3. Performance
 - Use filtering parameters to reduce response sizes
 - Access metadata only when needed via dedicated endpoints
 - Use pagination for large result sets
 - Cache story map structures when possible
+- Use AI operations judiciously as they may have higher latency
 
 ## Error Handling
 
@@ -293,3 +426,34 @@ When creating story maps from file attachments:
 - **Supported formats**: TBD
 - **Content**: Requirements documents, user research, specifications
 
+## API Design Trade-offs
+
+### Pros
+
+**Clear Structure with Flexible Querying**
+- StoryMap structure remains obvious to consumers through standard CRUD endpoints
+- External metadata architecture keeps core data model clean while enabling rich integrations
+- AI endpoint provides flexible natural language querying without changing the core structure
+- Multiple consumers can attach domain-specific data (JIRA tickets, project metadata) without conflicts
+- Clients can use traditional REST patterns for direct manipulation or conversational AI for exploration
+
+**Simplified Integration**
+- Only two parameters required: `messages` and `operation_type`
+- No AI expertise needed - server handles model selection and parameters
+- Single endpoint for both queries and updates
+
+**Future-Proof Abstraction**
+- AI improvements happen server-side without client changes
+- Can switch AI providers transparently
+- Core API remains stable while allowing rich integrations (JIRA, project management tools, etc.)
+
+### Cons
+
+**Reduced Control**
+- No model selection or parameter tuning
+- Natural language responses may vary in format
+- Less predictable than direct CRUD operations
+
+**Performance Trade-offs**
+- AI processing adds latency compared to direct API calls
+- Higher computational cost per request
