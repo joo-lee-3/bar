@@ -456,4 +456,24 @@ When creating story maps from file attachments:
 
 **Performance Trade-offs**
 - AI processing adds latency compared to direct API calls
-- Higher computational cost per request
+- Higher computational cost per request##
+ TODO
+
+### 1. Security Architecture
+- **KAS Integration**: Implement Key Admin Service (KAS) for authentication to this service
+- **AI Platform Authentication**: Define how this service authenticates to the underlying AI platform
+- **Token Management**: Establish token lifecycle and refresh patterns
+- **Authorization Model**: Define fine-grained permissions for story map operations
+
+### 2. Streaming Support
+- **Real-time Responses**: Add streaming support for AI operations to improve user experience
+- **Server-Sent Events**: Implement SSE protocol for incremental content delivery
+- **Stream Parameter**: Add optional `stream` parameter to AI request schema
+- **Partial Results**: Define how to handle partial responses and error recovery
+
+### 3. Concurrent Editing Guarantees
+- **Optimistic Locking**: Implement version-based conflict detection for story map updates
+- **Merge Strategies**: Define how to handle conflicting edits to the same story map
+- **Real-time Sync**: Consider WebSocket support for live collaboration
+- **Consistency Model**: Establish guarantees around data consistency during concurrent operations
+- **Conflict Resolution**: Define user experience for handling edit conflicts

@@ -186,18 +186,6 @@ paths:
         - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/UuidPath'
-        - name: X-Company-Api-Version
-          in: header
-          required: false
-          schema:
-            type: string
-          description: API version header for versioning support
-        - name: Idempotency-Key
-          in: header
-          required: false
-          schema:
-            type: string
-          description: Unique key to ensure idempotent operations
       requestBody:
         required: true
         content:
@@ -251,59 +239,17 @@ paths:
                   operation_type: "update"
       responses:
         '200':
-          description: AI-enhanced content generated successfully
+          description: Story map processed successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StoryMapAIResponse'
-              examples:
-                query_response:
-                  summary: Query operation response
-                  value:
-                    content: "This e-commerce story map contains 4 main user personas:\n\n1. **New Customer** - Focused on registration and onboarding\n2. **Returning Customer** - Streamlined shopping experience\n3. **Premium Member** - Access to exclusive features\n4. **Guest User** - Quick checkout without registration\n\nThe story map has 5 main activities: User Registration, Product Discovery, Shopping Cart, Checkout Process, and Post-Purchase Support."
-                    operation_type: "query"
-                update_response:
-                  summary: Update operation response
-                  value:
-                    content: "Successfully enhanced the story map with detailed acceptance criteria and mobile-specific user stories:\n\n**Updated Story: Mobile User Registration**\nAs a mobile user, I want to create an account using my phone number so that I can quickly register without typing a long email address.\n\nAcceptance Criteria:\n- SMS verification workflow\n- Touch ID/Face ID integration\n- Auto-fill contact information\n- Responsive mobile design\n- Offline capability for form data"
-                    operation_type: "update"
-            text/event-stream:
-              examples:
-                streaming_response:
-                  summary: Streaming response for update operations
-                  value: |
-                    data: {"content":"Analyzing","operation_type":"update"}
-
-                    data: {"content":" story map structure...","operation_type":"update"}
-
-                    data: {"content":"\n\nAdding mobile-specific user stories to Product Discovery activity...","operation_type":"update"}
-
-                    data: {"content":"Successfully updated the story map with enhanced user stories and acceptance criteria.","operation_type":"update"}
-
-                    data: [DONE]
         '400':
           $ref: '#/components/responses/BadRequest'
-        '401':
-          description: Unauthorized - invalid or missing authentication
-        '403':
-          description: Forbidden - insufficient permissions
         '404':
           $ref: '#/components/responses/NotFound'
-        '413':
-          description: Request entity too large - content exceeds size limits
-        '422':
-          description: Unprocessable Entity - validation error
-        '429':
-          description: Rate limit exceeded
-          headers:
-            Retry-After:
-              schema:
-                type: integer
-              description: Seconds to wait before retrying
         '500':
           $ref: '#/components/responses/InternalError'
-        '502':
-          description: AI provider error
 
     put:
       summary: Update StoryMap by UUID
